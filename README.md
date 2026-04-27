@@ -1,8 +1,8 @@
-# VÖBB BMP Downloader
+# VÖBB ePaper Downloader
 
-Lädt die aktuelle Ausgabe der **Berliner Morgenpost** automatisch als PDF herunter – über den kostenlosen Bibliothekszugang des [VÖBB](https://www.voebb.de) (Verbund der Öffentlichen Bibliotheken Berlins).
+Lädt tagesaktuelle Zeitungsausgaben (Berliner Morgenpost, Frankfurter Rundschau) automatisch als PDF herunter – über den kostenlosen Bibliothekszugang des [VÖBB](https://www.voebb.de) (Verbund der Öffentlichen Bibliotheken Berlins).
 
-Optional wird das PDF direkt per E-Mail an ein oder mehrere Kindle-Geräte gesendet.
+Optional werden die PDFs direkt per E-Mail an ein oder mehrere Kindle-Geräte gesendet (eine E-Mail pro Zeitung).
 
 ---
 
@@ -24,28 +24,53 @@ playwright install chromium
 
 ### 1. Konfiguration
 
-Öffne `download_bmp.py` und trage deine Zugangsdaten im Konfigurationsblock ein:
+Die Zugangsdaten werden in einer lokalen Datei `config.py` gespeichert, die **nicht** auf GitHub hochgeladen wird.
+
+```bash
+cp config.example.py config.py
+```
+
+Dann `config.py` öffnen und mit deinen echten Zugangsdaten befüllen:
 
 ```python
 VOEBB_BENUTZERNUMMER = "DEINE_BENUTZERNUMMER"
 VOEBB_PASSWORT       = "DEIN_PASSWORT"
 
-DOWNLOAD_ORDNER = Path.home() / "Downloads"
+DOWNLOAD_ORDNER      = "~/Downloads"
 
-# Kindle-Versand (nur relevant mit --kindle)
-KINDLE_EMAILS  = ["name@kindle.com"]
-ABSENDER_EMAIL = "absender@example.com"
-SMTP_HOST      = "smtp.example.com"
-SMTP_PORT      = 465                    # 465 = SSL, 587 = STARTTLS
-SMTP_USER      = "absender@example.com"
-SMTP_PASSWORT  = "DEIN_SMTP_PASSWORT"
+KINDLE_EMAILS        = ["name@kindle.com"]
+ABSENDER_EMAIL       = "absender@example.com"
+SMTP_HOST            = "smtp.example.com"
+SMTP_PORT            = 465
+SMTP_USER            = "absender@example.com"
+SMTP_PASSWORT        = "DEIN_SMTP_PASSWORT"
 ```
+
+> **Wichtig:** `config.py` steht in `.gitignore` und wird nie ins Repository hochgeladen.  
+> Nur `config.example.py` (mit Platzhaltern) ist auf GitHub sichtbar.
 
 > **Hinweis Kindle:** Die Absender-E-Mail-Adresse muss in deinem Amazon-Konto unter  
 > *Verwalten → Einstellungen → Persönliches Dokument* als vertrauenswürdig eingetragen sein.  
-> Bei Gmail ein [App-Passwort](https://myaccount.google.com/apppasswords) verwenden, kein normales Login-Passwort.
+> Bei Gmail ein [App-Passwort](https://myaccount.google.com/apppasswords) verwenden.
 
-### 2. Manuell ausführen
+### 2. Zeitungen konfigurieren
+
+In `download_bmp.py` kann die Liste der Zeitungen beliebig erweitert werden:
+
+```python
+ZEITUNGEN = [
+    {
+        "name": "Berliner Morgenpost",
+        "url":  "https://bib-voebb.genios.de/browse/Alle/Presse/Presse%20Deutschland/Berliner%20Morgenpost",
+    },
+    {
+        "name": "Frankfurter Rundschau",
+        "url":  "https://bib-voebb.genios.de/browse/Alle/Presse/Presse%20Deutschland/Frankfurter%20Rundschau",
+    },
+]
+```
+
+### 3. Manuell ausführen
 
 ```bash
 # Nur herunterladen
@@ -55,7 +80,7 @@ python3 download_bmp.py
 python3 download_bmp.py --kindle
 ```
 
-Das PDF wird unter `~/Downloads/BMP_JJJJ_TTMMJJJJ.pdf` gespeichert.
+Die PDFs werden unter `~/Downloads/` gespeichert (`BMP_JJJJ_TTMMJJJJ.pdf` etc.).
 
 ---
 
@@ -141,4 +166,4 @@ Alle Läufe werden in `download.log` im Skript-Ordner protokolliert. Die Datei r
 
 ## Hinweis
 
-Dieses Skript setzt einen gültigen VÖBB-Bibliotheksausweis voraus. Die Berliner Morgenpost ist über den VÖBB-Zugang zu [bib-voebb.genios.de](https://bib-voebb.genios.de) verfügbar. Die Nutzung unterliegt den Nutzungsbedingungen des VÖBB und von Genios.
+Dieses Skript setzt einen gültigen VÖBB-Bibliotheksausweis voraus. Die Nutzung unterliegt den Nutzungsbedingungen des VÖBB und von Genios.

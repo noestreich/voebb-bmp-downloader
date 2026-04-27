@@ -3,7 +3,7 @@
 # Dann config.py mit deinen echten Zugangsdaten befüllen.
 # config.py wird NICHT auf GitHub hochgeladen.
 
-VOEBB_BENUTZERNUMMER = "DEINE_BENUTZERNUMMER"   # z.B. "66044459609"
+VOEBB_BENUTZERNUMMER = "DEINE_BENUTZERNUMMER"
 VOEBB_PASSWORT       = "DEIN_PASSWORT"
 
 DOWNLOAD_ORDNER      = "~/Downloads"
