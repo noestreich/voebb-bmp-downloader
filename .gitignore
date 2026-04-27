@@ -1,3 +1,4 @@
+config.py
 download.log
 download.log.*
 __pycache__/

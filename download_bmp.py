@@ -27,6 +27,27 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 
+# ─── Konfiguration aus config.py laden ───────────────────────────────────────
+try:
+    import config as _cfg
+except ModuleNotFoundError:
+    print(
+        "FEHLER: config.py nicht gefunden.\n"
+        "Bitte config.example.py → config.py kopieren und befüllen:\n"
+        "  cp config.example.py config.py"
+    )
+    raise SystemExit(1)
+
+VOEBB_BENUTZERNUMMER = _cfg.VOEBB_BENUTZERNUMMER
+VOEBB_PASSWORT       = _cfg.VOEBB_PASSWORT
+DOWNLOAD_ORDNER      = Path(_cfg.DOWNLOAD_ORDNER).expanduser()
+KINDLE_EMAILS        = _cfg.KINDLE_EMAILS
+ABSENDER_EMAIL       = _cfg.ABSENDER_EMAIL
+SMTP_HOST            = _cfg.SMTP_HOST
+SMTP_PORT            = _cfg.SMTP_PORT
+SMTP_USER            = _cfg.SMTP_USER
+SMTP_PASSWORT        = _cfg.SMTP_PASSWORT
+
 # ─── Zeitungen ────────────────────────────────────────────────────────────────
 
 ZEITUNGEN = [
@@ -45,25 +66,6 @@ ZEITUNGEN = [
         ),
     },
 ]
-
-# ─── Konfiguration ────────────────────────────────────────────────────────────
-
-VOEBB_BENUTZERNUMMER = "DEINE_BENUTZERNUMMER"
-VOEBB_PASSWORT       = "DEIN_PASSWORT"
-
-DOWNLOAD_ORDNER = Path.home() / "Downloads"
-
-# Kindle-Versand (nur relevant mit --kindle)
-# Jede Zeitung wird als separate E-Mail verschickt.
-# Mehrere Empfänger einfach als weitere Einträge in der Liste ergänzen.
-KINDLE_EMAILS  = ["name@kindle.com"]
-ABSENDER_EMAIL = "absender@example.com"
-SMTP_HOST      = "smtp.example.com"
-SMTP_PORT      = 465                    # 465 = SSL, 587 = STARTTLS
-SMTP_USER      = "absender@example.com"
-SMTP_PASSWORT  = "DEIN_SMTP_PASSWORT"  # Bei Gmail: App-Passwort verwenden
-
-# ──────────────────────────────────────────────────────────────────────────────
 
 LOG_DATEI = Path(__file__).parent / "download.log"
 
