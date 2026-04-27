@@ -1,0 +1,5 @@
+download.log
+download.log.*
+__pycache__/
+*.pyc
+.DS_Store
