@@ -47,6 +47,7 @@ SMTP_HOST            = _cfg.SMTP_HOST
 SMTP_PORT            = _cfg.SMTP_PORT
 SMTP_USER            = _cfg.SMTP_USER
 SMTP_PASSWORT        = _cfg.SMTP_PASSWORT
+KOMPRIMIERUNG_AB_MB  = getattr(_cfg, "KOMPRIMIERUNG_AB_MB", 20)
 
 # ─── Zeitungen ────────────────────────────────────────────────────────────────
 
@@ -111,6 +112,70 @@ def benachrichtige(titel: str, nachricht: str, fehler: bool = False) -> None:
         subprocess.Popen(["osascript", "-e", skript])
     except Exception as e:
         log.warning("Benachrichtigung konnte nicht angezeigt werden: %s", e)
+
+
+# ─── PDF-Komprimierung ────────────────────────────────────────────────────────
+
+def _gs_komprimiere(eingabe: Path, ausgabe: Path, qualitaet: str) -> bool:
+    """Führt Ghostscript-Komprimierung durch. Gibt True bei Erfolg zurück."""
+    ergebnis = subprocess.run(
+        [
+            "gs",
+            "-sDEVICE=pdfwrite",
+            "-dCompatibilityLevel=1.4",
+            f"-dPDFSETTINGS={qualitaet}",
+            "-dNOPAUSE", "-dQUIET", "-dBATCH",
+            f"-sOutputFile={ausgabe}",
+            str(eingabe),
+        ],
+        capture_output=True,
+    )
+    return ergebnis.returncode == 0 and ausgabe.exists()
+
+
+def komprimiere_pdf(pfad: Path) -> Path:
+    """
+    Komprimiert ein PDF mit Ghostscript wenn es größer als KOMPRIMIERUNG_AB_MB ist.
+    Strategie: erst /ebook (150 dpi), falls immer noch zu groß /screen (72 dpi).
+    Gibt den Pfad zur (ggf. komprimierten) Datei zurück.
+    """
+    groesse_mb = pfad.stat().st_size / 1_048_576
+    if groesse_mb <= KOMPRIMIERUNG_AB_MB:
+        return pfad
+
+    log.info("%.1f MB – Komprimierung wird gestartet …", groesse_mb)
+    tmp_pfad = pfad.with_suffix(".tmp.pdf")
+
+    for qualitaet, bezeichnung in [("/ebook", "150 dpi"), ("/screen", "72 dpi")]:
+        tmp_pfad.unlink(missing_ok=True)
+        if not _gs_komprimiere(pfad, tmp_pfad, qualitaet):
+            log.warning("Ghostscript fehlgeschlagen (%s), nächste Stufe …", bezeichnung)
+            continue
+
+        neu_mb = tmp_pfad.stat().st_size / 1_048_576
+        log.info("  %s: %.1f MB → %.1f MB (%.0f%% kleiner)",
+                 bezeichnung, groesse_mb, neu_mb, 100 * (1 - neu_mb / groesse_mb))
+
+        if neu_mb <= KOMPRIMIERUNG_AB_MB:
+            tmp_pfad.replace(pfad)
+            log.info("Komprimierung abgeschlossen: %s verwendet.", bezeichnung)
+            return pfad
+
+    # Beste erreichbare Komprimierung verwenden (auch wenn noch über Schwellenwert)
+    if tmp_pfad.exists():
+        neu_mb = tmp_pfad.stat().st_size / 1_048_576
+        if neu_mb < groesse_mb:
+            tmp_pfad.replace(pfad)
+            log.warning(
+                "PDF trotz Komprimierung noch %.1f MB (Ziel: ≤%d MB). "
+                "Versand wird trotzdem versucht.",
+                neu_mb, KOMPRIMIERUNG_AB_MB,
+            )
+        else:
+            tmp_pfad.unlink()
+            log.warning("Komprimierung ohne Wirkung, Original wird verwendet.")
+
+    return pfad
 
 
 # ─── Download einer einzelnen Zeitung ─────────────────────────────────────────
@@ -197,6 +262,8 @@ async def lade_zeitung(page, zeitung: dict, heute: date) -> Path:
     await download.save_as(ziel_pfad)
     groesse_mb = ziel_pfad.stat().st_size / 1_048_576
     log.info("Gespeichert: %s (%.1f MB)", ziel_pfad, groesse_mb)
+
+    ziel_pfad = komprimiere_pdf(ziel_pfad)
     return ziel_pfad
 
 

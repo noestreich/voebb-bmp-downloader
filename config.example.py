@@ -14,3 +14,6 @@ SMTP_HOST            = "smtp.example.com"        # z.B. "smtp.gmail.com"
 SMTP_PORT            = 465                       # 465 = SSL, 587 = STARTTLS
 SMTP_USER            = "absender@example.com"
 SMTP_PASSWORT        = "DEIN_SMTP_PASSWORT"     # bei Gmail: App-Passwort
+
+# PDF-Komprimierung mit Ghostscript (0 = immer komprimieren, 999 = nie)
+KOMPRIMIERUNG_AB_MB  = 25
