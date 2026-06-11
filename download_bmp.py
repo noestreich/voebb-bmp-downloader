@@ -14,6 +14,7 @@ Ausführen:
 """
 
 import asyncio
+import json
 import logging
 import logging.handlers
 import re
@@ -68,7 +69,8 @@ ZEITUNGEN = [
     },
 ]
 
-LOG_DATEI = Path(__file__).parent / "download.log"
+LOG_DATEI    = Path(__file__).parent / "download.log"
+STATUS_DATEI = Path(__file__).parent / "status.json"
 
 
 # ─── Logging mit automatischer Rotation ───────────────────────────────────────
@@ -92,6 +94,32 @@ def setup_logging() -> logging.Logger:
 
 
 log = setup_logging()
+
+
+# ─── Tagesstatus (für automatische Wiederholungsläufe) ────────────────────────
+#
+# launchd startet das Skript mehrmals am Tag (siehe README). Damit bereits
+# erledigte Zeitungen nicht erneut geladen und verschickt werden, merkt sich
+# status.json pro Tag, welche Zeitungen vollständig durchgelaufen sind.
+
+def lade_status(heute: date) -> dict:
+    """Liest status.json. Stammt der Eintrag nicht von heute, wird er verworfen."""
+    try:
+        status = json.loads(STATUS_DATEI.read_text(encoding="utf-8"))
+        if status.get("datum") == heute.isoformat():
+            return status
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    return {"datum": heute.isoformat(), "erledigt": []}
+
+
+def markiere_erledigt(status: dict, name: str) -> None:
+    """Trägt eine Zeitung als heute erledigt ein und speichert sofort."""
+    if name not in status["erledigt"]:
+        status["erledigt"].append(name)
+    STATUS_DATEI.write_text(
+        json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
 
 # ─── macOS-Benachrichtigungen ──────────────────────────────────────────────────
@@ -269,11 +297,10 @@ async def lade_zeitung(page, zeitung: dict, heute: date) -> Path:
 
 # ─── Haupt-Download (Login + alle Zeitungen) ──────────────────────────────────
 
-async def download_alle() -> list[tuple[dict, Path]]:
-    """Loggt einmal ein und lädt alle konfigurierten Zeitungen herunter."""
+async def download_alle(zeitungen: list[dict], heute: date) -> list[tuple[dict, Path]]:
+    """Loggt einmal ein und lädt die übergebenen Zeitungen herunter."""
     from playwright.async_api import async_playwright
 
-    heute = date.today()
     log.info("=== ePaper-Download gestartet für %s ===", heute.strftime("%d.%m.%Y"))
 
     ergebnisse: list[tuple[dict, Path]] = []
@@ -284,7 +311,7 @@ async def download_alle() -> list[tuple[dict, Path]]:
         page    = await context.new_page()
 
         # Einmalig einloggen über erste Zeitung
-        erste_url = ZEITUNGEN[0]["url"]
+        erste_url = zeitungen[0]["url"]
         await page.goto(erste_url, wait_until="networkidle", timeout=30_000)
 
         if "voebb.de" in page.url:
@@ -309,7 +336,7 @@ async def download_alle() -> list[tuple[dict, Path]]:
                 )
 
         # Alle Zeitungen in derselben Session laden
-        for zeitung in ZEITUNGEN:
+        for zeitung in zeitungen:
             try:
                 pfad = await lade_zeitung(page, zeitung, heute)
                 ergebnisse.append((zeitung, pfad))
@@ -324,7 +351,7 @@ async def download_alle() -> list[tuple[dict, Path]]:
         await browser.close()
 
     log.info("=== %d/%d Zeitungen erfolgreich geladen ===",
-             len(ergebnisse), len(ZEITUNGEN))
+             len(ergebnisse), len(zeitungen))
     return ergebnisse
 
 
@@ -373,16 +400,40 @@ def sende_an_kindle(zeitung: dict, pdf_pfad: Path) -> None:
 
 def main() -> None:
     kindle = "--kindle" in sys.argv
+    heute  = date.today()
 
-    ergebnisse = asyncio.run(download_alle())
+    # Bereits erledigte Zeitungen überspringen (Wiederholungslauf via launchd)
+    status      = lade_status(heute)
+    ausstehend  = [z for z in ZEITUNGEN if z["name"] not in status["erledigt"]]
+
+    if not ausstehend:
+        log.info("Alle Zeitungen für heute bereits erledigt – nichts zu tun.")
+        return
+
+    if status["erledigt"]:
+        log.info(
+            "Wiederholungslauf: noch ausstehend: %s",
+            ", ".join(z["name"] for z in ausstehend),
+        )
+
+    try:
+        ergebnisse = asyncio.run(download_alle(ausstehend, heute))
+    except Exception as e:
+        log.exception("Lauf abgebrochen: %s", e)
+        benachrichtige(
+            "ePaper-Download fehlgeschlagen",
+            f"{str(e)[:100]}\nNächster automatischer Versuch in 1 Stunde.",
+            fehler=True,
+        )
+        sys.exit(1)
 
     if not ergebnisse:
         log.error("Keine Zeitung erfolgreich geladen.")
         sys.exit(1)
 
-    if kindle:
-        fehler = False
-        for zeitung, pdf in ergebnisse:
+    fehler = False
+    for zeitung, pdf in ergebnisse:
+        if kindle:
             try:
                 sende_an_kindle(zeitung, pdf)
             except Exception as e:
@@ -393,18 +444,20 @@ def main() -> None:
                     fehler=True,
                 )
                 fehler = True
+                continue
+        markiere_erledigt(status, zeitung["name"])
 
-        if not fehler:
-            namen = " & ".join(z["name"] for z, _ in ergebnisse)
-            benachrichtige(
-                "ePaper",
-                f"{namen}\nGeladen & an Kindle gesendet ✓",
-            )
-    else:
-        namen = " & ".join(z["name"] for z, _ in ergebnisse)
-        benachrichtige("ePaper", f"{namen}\nGeladen ✓")
+    if not fehler and len(ergebnisse) == len(ausstehend):
+        namen  = " & ".join(z["name"] for z, _ in ergebnisse)
+        zusatz = "\nGeladen & an Kindle gesendet ✓" if kindle else "\nGeladen ✓"
+        benachrichtige("ePaper", f"{namen}{zusatz}")
 
     log.info("=== Fertig ===")
+
+    # Mit Fehlercode beenden, wenn etwas offen blieb → Log zeigt es, und der
+    # nächste geplante Lauf holt nur das Fehlende nach.
+    if fehler or len(ergebnisse) < len(ausstehend):
+        sys.exit(1)
 
 
 if __name__ == "__main__":

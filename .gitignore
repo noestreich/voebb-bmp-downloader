@@ -1,4 +1,5 @@
 config.py
+status.json
 download.log
 download.log.*
 __pycache__/

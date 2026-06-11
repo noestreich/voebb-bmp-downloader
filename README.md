@@ -106,14 +106,19 @@ Datei `~/Library/LaunchAgents/de.bmp-downloader.plist` anlegen:
         <string>--kindle</string>
     </array>
 
-    <!-- Täglich um 06:30 Uhr -->
+    <!-- Täglich 06:30, danach stündliche Wiederholungsversuche bis 12:30.
+         Das Skript beendet sich sofort, wenn alle Zeitungen für den Tag
+         bereits erfolgreich geladen wurden (status.json). -->
     <key>StartCalendarInterval</key>
-    <dict>
-        <key>Hour</key>
-        <integer>6</integer>
-        <key>Minute</key>
-        <integer>30</integer>
-    </dict>
+    <array>
+        <dict><key>Hour</key><integer>6</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>9</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>10</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>11</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>30</integer></dict>
+    </array>
 
     <key>StandardOutPath</key>
     <string>/Users/DEINNAME/bmp-downloader/download.log</string>
@@ -152,7 +157,13 @@ Damit die Benachrichtigung **stehen bleibt** (statt als Banner zu verschwinden):
 
 ## Verhalten bei Wartung / Nichtverfügbarkeit
 
-Ist der VÖBB-Login nicht erreichbar (z. B. planmäßige Wartung), schlägt das Skript nach dem Timeout fehl und zeigt eine Fehler-Benachrichtigung. Das PDF für diesen Tag kann dann manuell nachgeladen werden.
+Ist der VÖBB-Login nicht erreichbar (z. B. planmäßige Wartung), schlägt der Lauf fehl und zeigt eine Fehler-Benachrichtigung. **launchd startet das Skript danach stündlich neu** (07:30–12:30, siehe Plist oben), bis alle Zeitungen geladen sind.
+
+Dafür merkt sich das Skript in `status.json`, welche Zeitungen am aktuellen Tag bereits vollständig erledigt wurden (Download + ggf. Kindle-Versand):
+
+- Ein Wiederholungslauf lädt **nur die noch fehlenden** Zeitungen nach – es gibt keine doppelten Downloads oder Kindle-Mails.
+- Ist bereits alles erledigt, beendet sich das Skript sofort und ohne Benachrichtigung.
+- Am nächsten Tag wird der Status automatisch zurückgesetzt.
 
 Falls der Mac beim geplanten Ausführungszeitpunkt schläft, holt **launchd** den Job automatisch nach, sobald der Mac wieder aufwacht.
 
