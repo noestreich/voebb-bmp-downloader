@@ -87,9 +87,10 @@ def setup_logging() -> logging.Logger:
     )
     fh.setFormatter(fmt)
     log.addHandler(fh)
-    ch = logging.StreamHandler()
-    ch.setFormatter(fmt)
-    log.addHandler(ch)
+    if sys.stdout.isatty():
+        ch = logging.StreamHandler()
+        ch.setFormatter(fmt)
+        log.addHandler(ch)
     return log
 
 
