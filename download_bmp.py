@@ -290,6 +290,9 @@ async def lade_zeitung(page, zeitung: dict, heute: date) -> Path:
 
     await download.save_as(ziel_pfad)
     groesse_mb = ziel_pfad.stat().st_size / 1_048_576
+    if groesse_mb < 0.01:
+        ziel_pfad.unlink(missing_ok=True)
+        raise RuntimeError(f"{name}: Heruntergeladene Datei ist leer (0 MB) – Ausgabe vermutlich noch nicht verfügbar")
     log.info("Gespeichert: %s (%.1f MB)", ziel_pfad, groesse_mb)
 
     ziel_pfad = komprimiere_pdf(ziel_pfad)
