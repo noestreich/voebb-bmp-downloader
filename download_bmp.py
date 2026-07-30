@@ -216,7 +216,10 @@ async def lade_zeitung(page, zeitung: dict, heute: date) -> Path:
     name = zeitung["name"]
     log.info("--- %s ---", name)
 
-    await page.goto(zeitung["url"], wait_until="networkidle", timeout=30_000)
+    # Kein "networkidle": die Genios-Seite hält nach dem Login dauerhaft eine
+    # offene Verbindung (/login/login), networkidle wird deshalb nie erreicht.
+    # Der wait_for_selector unten stellt sicher, dass die Seite nutzbar ist.
+    await page.goto(zeitung["url"], wait_until="domcontentloaded", timeout=30_000)
 
     # Issue-ID lesen (= aktuellste Ausgabe)
     log.info("Suche aktuelle Ausgabe …")
@@ -316,7 +319,7 @@ async def download_alle(zeitungen: list[dict], heute: date) -> list[tuple[dict, 
 
         # Einmalig einloggen über erste Zeitung
         erste_url = zeitungen[0]["url"]
-        await page.goto(erste_url, wait_until="networkidle", timeout=30_000)
+        await page.goto(erste_url, wait_until="domcontentloaded", timeout=30_000)
 
         if "voebb.de" in page.url:
             log.info("Logge bei VOEBB ein …")
@@ -325,14 +328,18 @@ async def download_alle(zeitungen: list[dict], heute: date) -> list[tuple[dict, 
             await page.fill('input[name="L#AUSW"]', VOEBB_BENUTZERNUMMER)
             await page.fill('input[name="LPASSW"]', VOEBB_PASSWORT)
             await page.click('input[name="LLOGIN"]')
-            await page.wait_for_load_state("networkidle", timeout=15_000)
+            await page.wait_for_load_state("domcontentloaded", timeout=15_000)
 
             # Consent-Seite (URL bleibt logincheck – Button prüfen)
             consent_btn = page.locator('input[name="CLOGIN"]')
             if await consent_btn.count() > 0:
                 log.info("Akzeptiere Datenschutz-Zustimmung …")
                 await consent_btn.click()
-                await page.wait_for_load_state("networkidle", timeout=15_000)
+                # Auf die Rückleitung zu Genios warten statt auf networkidle
+                await page.wait_for_url(
+                    lambda url: "genios.de" in url, timeout=20_000
+                )
+                await page.wait_for_load_state("domcontentloaded", timeout=15_000)
 
             if "genios.de" not in page.url:
                 raise RuntimeError(
