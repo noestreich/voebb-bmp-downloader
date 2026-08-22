@@ -80,7 +80,8 @@ python3 download_bmp.py
 python3 download_bmp.py --kindle
 ```
 
-Die PDFs werden unter `~/Downloads/` gespeichert (`BMP_JJJJ_TTMMJJJJ.pdf` etc.).
+Die PDFs werden unter `~/Downloads/Zeitungen/<Kürzel>/` gespeichert – also z. B. `~/Downloads/Zeitungen/FR/20260822_FR_2026.pdf`.
+Das Namensschema ist `JJJJMMTT_Kürzel_Jahrgang.pdf`, damit die Ausgaben chronologisch sortieren.
 
 ---
 

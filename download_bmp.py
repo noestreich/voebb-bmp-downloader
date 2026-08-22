@@ -69,6 +69,9 @@ ZEITUNGEN = [
     },
 ]
 
+# Zeitungen landen in DOWNLOAD_ORDNER/Zeitungen/<Kürzel>/, z. B. …/Zeitungen/FR/
+ZEITUNGEN_ORDNER = "Zeitungen"
+
 LOG_DATEI    = Path(__file__).parent / "download.log"
 STATUS_DATEI = Path(__file__).parent / "status.json"
 
@@ -270,7 +273,24 @@ async def lade_zeitung(page, zeitung: dict, heute: date) -> Path:
     from urllib.parse import unquote
     datei_name = unquote(rel_url.split("filename=")[-1].split("&")[0])
     datei_name = datei_name.split("/")[-1]          # nur letztes Segment
-    ziel_pfad  = DOWNLOAD_ORDNER / datei_name
+
+    # Genios liefert "FR_2026_22082026.pdf" (Kürzel_Jahrgang_TTMMJJJJ).
+    # Gewünscht ist "20260822_FR_2026.pdf", damit die Dateien chronologisch
+    # sortieren. Passt der Name nicht ins Schema, bleibt er unverändert.
+    umbenannt = re.sub(
+        r"^([A-Za-z]+)_(\d{4})_(\d{2})(\d{2})(\d{4})\.pdf$",
+        r"\5\4\3_\1_\2.pdf",
+        datei_name,
+    )
+    if umbenannt == datei_name:
+        log.warning("Unerwartetes Dateinamensschema, Name bleibt: %s", datei_name)
+    datei_name = umbenannt
+
+    # Pro Zeitung ein eigener Unterordner, benannt nach dem Kürzel (BMP, FR …)
+    kuerzel   = issue_id.split(":")[0].rstrip("_")
+    ziel_ordner = DOWNLOAD_ORDNER / ZEITUNGEN_ORDNER / kuerzel
+    ziel_ordner.mkdir(parents=True, exist_ok=True)
+    ziel_pfad = ziel_ordner / datei_name
 
     log.info("Lade PDF herunter …")
     async with page.expect_download(timeout=60_000) as dl_info:
