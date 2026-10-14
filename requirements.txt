@@ -1,0 +1,4 @@
+# Version gepinnt: ein Playwright-Update erwartet eine andere Chromium-Build-
+# Nummer und löst sonst einen Browser-Download aus. Beim Hochziehen danach
+# "playwright install chromium" ausführen.
+playwright==1.58.0

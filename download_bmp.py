@@ -326,7 +326,17 @@ async def lade_zeitung(page, zeitung: dict, heute: date) -> Path:
 
 async def download_alle(zeitungen: list[dict], heute: date) -> list[tuple[dict, Path]]:
     """Loggt einmal ein und lädt die übergebenen Zeitungen herunter."""
-    from playwright.async_api import async_playwright
+    try:
+        from playwright.async_api import async_playwright
+    except ModuleNotFoundError:
+        # Tritt typischerweise auf, wenn das Skript mit einem anderen Python
+        # läuft als dem, für das Playwright installiert wurde (z. B. nachdem
+        # Homebrew "python3" auf eine neue Version umgestellt hat).
+        raise RuntimeError(
+            f"Playwright fehlt in {sys.executable}. "
+            "Behebung: .venv/bin/python -m pip install -r requirements.txt "
+            "&& .venv/bin/python -m playwright install chromium"
+        ) from None
 
     log.info("=== ePaper-Download gestartet für %s ===", heute.strftime("%d.%m.%Y"))
 

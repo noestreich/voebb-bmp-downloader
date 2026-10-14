@@ -13,9 +13,21 @@ Optional werden die PDFs direkt per E-Mail an ein oder mehrere Kindle-Geräte ge
 - Ein aktiver VÖBB-Bibliotheksausweis
 - Playwright (headless Chromium)
 
+Playwright wird in eine projekteigene virtuelle Umgebung (`.venv`) installiert.
+Das ist wichtig, weil Homebrew `python3` bei jedem Major-Update auf eine neue
+Version umstellt – ein global installiertes Playwright wäre danach unsichtbar
+und der automatische Lauf würde mit `ModuleNotFoundError` abbrechen.
+
 ```bash
-pip install playwright
-playwright install chromium
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m playwright install chromium
+```
+
+Das Skript wird entsprechend mit dem Python aus der venv gestartet:
+
+```bash
+.venv/bin/python download_bmp.py --kindle
 ```
 
 ---
@@ -74,10 +86,10 @@ ZEITUNGEN = [
 
 ```bash
 # Nur herunterladen
-python3 download_bmp.py
+.venv/bin/python download_bmp.py
 
 # Herunterladen + an Kindle senden
-python3 download_bmp.py --kindle
+.venv/bin/python download_bmp.py --kindle
 ```
 
 Die PDFs werden unter `~/Downloads/Zeitungen/<Kürzel>/` gespeichert – also z. B. `~/Downloads/Zeitungen/FR/20260822_FR_2026.pdf`.
@@ -102,7 +114,7 @@ Datei `~/Library/LaunchAgents/de.bmp-downloader.plist` anlegen:
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/python3</string>
+        <string>/Users/DEINNAME/bmp-downloader/.venv/bin/python3</string>
         <string>/Users/DEINNAME/bmp-downloader/download_bmp.py</string>
         <string>--kindle</string>
     </array>
