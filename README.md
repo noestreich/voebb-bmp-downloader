@@ -97,6 +97,23 @@ Das Namensschema ist `JJJJMMTT_Kürzel_Jahrgang.pdf`, damit die Ausgaben chronol
 
 ---
 
+## Start über run.sh (empfohlen)
+
+`run.sh` prüft vor jedem Lauf, ob die virtuelle Umgebung benutzbar ist, und
+baut sie andernfalls automatisch neu auf. Das greift, wenn Homebrew das
+zugrunde liegende Python entfernt (z. B. durch `brew autoremove` oder
+`brew uninstall python@3.x`) – ohne den Wrapper würde der Lauf dann mit
+`ModuleNotFoundError: No module named 'playwright'` abbrechen.
+
+```bash
+./run.sh --kindle
+```
+
+Ein reguläres `brew cleanup` ist unkritisch: der Python-Symlink der venv zeigt
+auf `/usr/local/opt/python@3.x/…` und bleibt über Patch-Updates hinweg gültig.
+
+---
+
 ## Automatisierung (täglich, macOS launchd)
 
 ### launchd-Plist erstellen
@@ -114,8 +131,7 @@ Datei `~/Library/LaunchAgents/de.bmp-downloader.plist` anlegen:
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/DEINNAME/bmp-downloader/.venv/bin/python3</string>
-        <string>/Users/DEINNAME/bmp-downloader/download_bmp.py</string>
+        <string>/Users/DEINNAME/bmp-downloader/run.sh</string>
         <string>--kindle</string>
     </array>
 
